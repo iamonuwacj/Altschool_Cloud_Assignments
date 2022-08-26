@@ -5,7 +5,7 @@
 # <code>ip a</code>: It displays all network interface and ip address 
 # <img src="./Images/ip a.png" alt="All interface and ip adrress in my system">
 # <code>dig domain</code>:  Display DNS information for domain. 
-# <img src="./Images/domain.png" alt=""> 
+# <img src="./Images/dig domain.png" alt=""> 
 # <code>ping host</code>: Its used to send ICMP echo request to host. 
 # <img src="./Images/ping host.png" alt="">
 # <code>du -ah</code>: Display disk usage for all files and directories in human readable format.
