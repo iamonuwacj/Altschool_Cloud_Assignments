@@ -3,8 +3,8 @@
     <li>Contents of <code>/etc/apt/sources.list</code>
     <img src="./Images/phpfile1.png"/>
     <img src="./Images/phpfile2.png">
-    </li>
-    <li>Contents of <code> php -v </code>
+    </li><br>
+    <li>Contents of <code> php -v </code><br>
     <img src="./Images/php-v.png"/>
     </li>
 </ul>
