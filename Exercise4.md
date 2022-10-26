@@ -5,4 +5,6 @@
     <img src="./Images/phpfile2.png">
     </li>
     <li>Contents of php version
-    <img src="./Images/php-v.png"/> 
+    <img src="./Images/php-v.png"/>
+    </li>
+</ul>
