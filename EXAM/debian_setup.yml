@@ -1,0 +1,255 @@
+---
+- name: Installing and deploying a laravel app on LAMP
+  hosts: all
+  become: yes
+  become_method: sudo
+
+
+  tasks:
+    - name: update cache
+      apt:
+        update_cache: true
+        upgrade: dist
+
+
+    - name: Install Apache2
+      apt:
+        name:
+          - apache2
+          - ufw
+          - acl
+          - libapache2-mod-php
+          - curl
+          - git
+          - wget
+        state: latest
+
+
+    - name: Add firewall rules
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        logging: on
+
+    - name: ufw rules
+      community.general.ufw:
+        rule: "allow"
+        port: "{{item}}"
+        proto: tcp
+      with_items:
+          - "22"
+          - "80"
+          - "443"
+
+
+
+    - name: 1. Install mysql server package
+      apt: name=mariadb-server state=present
+
+    - name: 2. Start Mysql Service
+      service: name=mysql state=started enabled=true
+
+    - name: Install python Mysql package #required for mysql_db tasks
+      apt: name=python3-mysqldb state=present
+
+    - name: Create a new database
+      mysql_db: name=demo state=present collation=utf8_general_ci
+
+    - name: Create a database user
+      mysql_user: name=demo password=demo priv=*.*:ALL host=localhost state=present
+
+    - name: Copy sample data
+      copy: src=dump.sql dest=/tmp/dump.sql
+
+    - name: Restart Apache
+      service: name=apache2 state=restarted
+
+
+    - name: Install php
+      ansible.builtin.get_url:
+        url: https://packages.sury.org/php/apt.gpg
+        dest: /etc/apt/trusted.gpg.d/php.gpg
+
+
+    - name: Append a command to a file
+      ansible.builtin.shell:
+        echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list
+
+
+    - name: Update the system
+      apt: update_cache=yes
+
+
+    - name: install php
+      apt:
+        name:
+          - php8.1
+          - php8.1-fpm
+          - libapache2-mod-php8.1
+          - php8.1-common
+          - php8.1-mysql
+          - php8.1-xml
+          - php8.1-xmlrpc
+          - php8.1-curl
+          - php8.1-gd
+          - php8.1-imagick
+          - php8.1-cli
+          - php8.1-imap
+          - php8.1-mbstring
+          - php8.1-opcache
+          - php8.1-soap
+          - php8.1-zip
+          - php8.1-intl
+          - php8.1-bcmath
+          - unzip
+        state: present
+
+    - name: replace php.ini
+      copy:
+        src: php.ini
+        dest: /etc/php/8.1/apache2/
+        owner: root
+        group: root
+        mode: 0644
+
+
+    - name: Disable default apache configuration
+      shell: sudo a2dissite 000-default
+
+
+    - name: download composer and install on path
+      shell: curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer
+      args:
+        warn: no
+
+
+    - name: clone the app
+      git:
+        repo: https://github.com/f1amy/laravel-realworld-example-app.git
+        dest: /var/www/myapp/
+        clone: yes
+        update: yes
+        force: yes
+  
+
+    - name: Download and installs all libs and dependencies outlined in the myapp
+      community.general.composer:
+        command: update
+        working_dir: /var/www/myapp
+      environment:
+        COMPOSER_ALLOW_SUPERUSER: 1
+
+  
+    - name: composer install dependencies
+      composer:
+        command: install
+        working_dir: /var/www/myapp/
+      environment:
+        COMPOSER_ALLOW_SUPERUSER: 1
+
+
+    - name: config on env
+      copy:
+        src: .env  
+        dest: /var/www/myapp
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Add the .htaccess file
+      copy:
+        src: .htaccess
+        dest: /var/www/myapp
+        owner: root
+        group: root
+        mode: 0755
+
+  
+    - name: resolving permission issues on laravel directory
+      file: 
+        dest: /var/www/myapp/
+        recurse: yes
+        owner: www-data
+        group: www-data
+        mode: 0755
+    
+
+    - name: create a virtualhost on apache
+      copy:
+        src: stubs/myapp.conf
+        dest: /etc/apache2/sites-available/
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: a2ensite laravel
+      command: a2ensite myapp
+      args:
+        creates: /etc/apache2/sites-enabled/myapp.conf
+
+    - name: a2enmod rewrite
+      shell: sudo a2enmod rewrite
+
+
+    - name: Uncomment the route/web.php
+      copy:
+        src: web.php
+        dest: /var/www/myapp/routes
+        mode: 777
+
+
+    - name: Create Project
+      composer:
+        command: create-project
+        working_dir: /var/www/myapp
+      environment:
+        COMPOSER_ALLOW_SUPERUSER: 1
+
+
+    - name: Download and installs all libs and dependencies outlined in the myapp
+      community.general.composer:
+        command: update
+        working_dir: /var/www/myapp
+      environment:
+        COMPOSER_ALLOW_SUPERUSER: 1
+
+
+    - name: Change the working directory to /var/www/myapp before executing the command
+      ansible.builtin.shell: php artisan config:cache
+      args:
+        chdir: /var/www/myapp
+
+
+    - name: Change the working directory to /var/www/myapp before fresh
+      ansible.builtin.shell: php artisan migrate:fresh
+      args:
+        chdir: /var/www/myapp
+
+    - name: Download and installs seed libs and dependencies outlined in the myapp
+      community.general.composer:
+        command: update
+        working_dir: /var/www/myapp
+      environment:
+        COMPOSER_ALLOW_SUPERUSER: 1
+
+    
+    - name : Install Python Package
+      apt: name=python3 update_cache=yes state=latest
+
+    - name : Install Let's Encrypt Package
+      apt: name="python3-certbot-apache" update_cache=yes state=latest
+
+    - name: Create and Install Cert Using apache Plugin
+      command: sudo certbot --apache -d  iamonuwacj.me -m conuwa6@gmail.com --agree-tos 
+
+
+    - name: Seed the database
+      shell: sudo php artisan migrate --seed
+      args: 
+        chdir: /var/www/myapp    
+
+        
+    - name: restart Apache2
+      service: 
+        name: apache2
+        state: restarted

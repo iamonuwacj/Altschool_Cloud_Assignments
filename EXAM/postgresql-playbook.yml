@@ -1,0 +1,13 @@
+---
+- name: Install postgresql database to my slave
+  become: true
+  hosts: all
+  become_method: sudo
+
+
+
+  tasks:
+    - name: Install the database by running a script
+      script: postgresql.sh
+      args:
+        executable: bash
